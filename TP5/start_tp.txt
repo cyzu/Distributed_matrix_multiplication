@@ -1,0 +1,14 @@
+1- lancer ssh-keygen -t rsa
+	entrée * 3
+2- cd .ssh
+3- cp id_rsa.pub authorized_keys
+4- ssh localhost
+	si ne demande pas de mot de passe OK
+	^C
+	exit
+
+COMPILATION : mpicc -g -Wall -o hello_world hello_world.c
+EXECUTION : mpirun -np 20 ./hello_world
+		-np int -> changer le nombre de processus
+COMMUNICATION ENTRE ORDIS DE LA SALLE : ssh nom_ordi
+	mais n'a pas marché
