@@ -348,23 +348,23 @@ int main(int argc, char **argv) {
     
     struct tablo * psum = allocateTablo(source.size);
     sum_prefix(&source, psum);
-    printArray(psum, "psum");
+    //printArray(psum, "psum");
 
     struct tablo * ssum = allocateTablo(source.size);
     sum_suffix(&source, ssum);
-    printArray(ssum, "ssum");
+    //printArray(ssum, "ssum");
 
     struct tablo * smax = allocateTablo(source.size);
     max_suffix(psum, smax);
-    printArray(smax, "smax");
+    //printArray(smax, "smax");
 
     struct tablo * pmax = allocateTablo(source.size);
     max_prefix(ssum, pmax);
-    printArray(pmax, "pmax");
+    //printArray(pmax, "pmax");
 
     struct tablo * m = allocateTablo(source.size);
     sum_subsequence(&source, pmax, ssum, smax, psum, m);
-    printArray(m, "m");
+    //printArray(m, "m");
   
     find_subsequence_max(&source, m);
     

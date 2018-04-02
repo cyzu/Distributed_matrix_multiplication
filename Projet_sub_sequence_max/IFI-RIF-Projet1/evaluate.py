@@ -24,7 +24,7 @@ def runDataset(name, i) :
         #print(output)
         if (e.returncode < 0) :
             return "Error"
-        with open(dataFolder+"/result"+str(i)) as f:
+        with open(dataFolder+"/resultat"+str(i)) as f:
             for line in f:
                 return str(line.replace('\n', '')==output)
     except (TimeoutExpired) as e :
@@ -50,7 +50,7 @@ def compileAndRunProjects() :
         name=binFolder + f[:-2]
         #print(name)
         #output = subprocess.check_output(["gcc","-std=c99", "-o" , name,  srcFolder+ f ,"-lm", "-fopenmp"], stderr=STDOUT, universal_newlines=True).strip().replace('\n', '')
-        output = subprocess.check_output(["gcc-7","-Wall","-std=c99", "-o" , name,  srcFolder+ f ,"-lm", "-fopenmp"], stderr=STDOUT, universal_newlines=True).strip().replace('\n', '')
+        output = subprocess.check_output(["gcc-7","-g","-Wall","-std=c99", "-o" , name,  srcFolder+ f ,"-lm", "-fopenmp"], stderr=STDOUT, universal_newlines=True).strip().replace('\n', '')
         #print(output)
         resultCompilation=(output=="")
         print(f[:-2] + ";" + str(resultCompilation)  + runProject(f[:-2]))
