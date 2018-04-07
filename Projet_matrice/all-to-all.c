@@ -29,10 +29,10 @@ int main (int argc, char *argv[]){
 		}
 	}
 	/* affiche le résultats pour un processeur */
-	if (rank == numprocs - 3){
+	//if (rank == numprocs - 3){
 		for (i = 0; i < numprocs; i++){
 			printf("tablo[%d] = %d\n", i, tablo[i]);
 		}
-	}
+	//}
 	MPI_Finalize();
 }

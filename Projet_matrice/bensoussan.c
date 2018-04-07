@@ -1,4 +1,4 @@
-//#include <mpi.h>
+#include <mpi.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -39,6 +39,26 @@ void afficher_matrice(struct Matrice *m, char *string){
         printf("\n");
     }
 }
+
+/* Fonction qui extracte la colonne c de m dans destination
+ 
+ DESTINATION == UNE SEULE COLONNE ?? extaction de plusieurs colonne ??
+ destination doit être alloué au préalable.
+ pour l'instant extraction d'une seule colonne !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
+void extraction_colonne(struct Matrice * m, struct Matrice * destination, int c){
+    int i;
+    for (i = 0; i < m->ligne; i++) {
+        destination->matrice[i][0] = m->matrice[i][c];
+    }
+}
+// extraction de la ligne de m dans destination. Pour l'instant une seule ligne
+void extraction_ligne(struct Matrice * m, struct Matrice * destination, int l){
+    int i;
+    for (i = 0; i < m->ligne; i++) {
+        destination->matrice[i][0] = m->matrice[l][i];
+    }
+}
+
 
 
 
@@ -121,6 +141,30 @@ int main (int argc, char *argv[]){
 	generation_matrice_fixe(C, A->ligne, B->colonne);
 	produit_matriciel(C, A, B);
 	afficher_matrice(C, "C");
-
+    
+    
+    
+    // test extraction colonne de matrice A
+    struct Matrice *colonne1 = malloc(sizeof(struct Matrice));
+    generation_matrice_fixe(colonne1, A->ligne, 1);
+    struct Matrice *colonne2 = malloc(sizeof(struct Matrice));
+    generation_matrice_fixe(colonne2, A->ligne, 1);
+    struct Matrice *colonne3 = malloc(sizeof(struct Matrice));
+    generation_matrice_fixe(colonne3, A->ligne, 1);
+    
+    extraction_colonne(A, colonne1, 0);
+    extraction_colonne(A, colonne2, 1);
+    extraction_colonne(A, colonne3, 2);
+    afficher_matrice(colonne1, "Colonne1 de A");
+    afficher_matrice(colonne2, "Colonne2 de A");
+    afficher_matrice(colonne3, "Colonne3 de A");
+    
+    extraction_ligne(A, colonne1, 0);
+    extraction_ligne(A, colonne2, 1);
+    extraction_ligne(A, colonne3, 2);
+    afficher_matrice(colonne1, "Ligne1 de A");
+    afficher_matrice(colonne2, "Ligne2 de A");
+    afficher_matrice(colonne3, "Ligne3 de A");
+    
 	return 0;
 }
