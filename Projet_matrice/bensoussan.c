@@ -1,13 +1,12 @@
 #include <mpi.h>
 #include <stdlib.h>
 #include <stdio.h>
-
-//brew install valgrind -HEAD
-// Au début que le P0 connait les matrices et leur taille.
+#include <math.h>
+#include <time.h>
 
 struct Matrice{
 	int ligne, colonne;
-	int **matrice;
+	long long int *matrice;
 };
 
 
@@ -17,57 +16,52 @@ struct Matrice{
 /************************************************/
 /************************************************/
 
-void allocation_matrice(struct Matrice * m){
-	int i;
-	m->matrice = malloc(sizeof(int*) * m->ligne);
-	for(i = 0; i < m->ligne; i++){
-		m->matrice[i] = malloc(sizeof(int) * m->colonne);
-	}
+void allocation_matrice(struct Matrice * m, const int l, const int c){
+    m->ligne = l;
+    m->colonne = c;
+
+	m->matrice = malloc(sizeof(long long int*) * m->ligne * m->colonne);
 }
 
-void afficher_matrice(struct Matrice *m, char *string){
-    int i, j;
-    printf("\n\n---- %s ----\n", string);
-    for(i = 0; i < m->ligne; i++){
-        for(j = 0; j < m->colonne; j++){
-            if (j == 0){
-                printf("%d", m->matrice[i][j]);
-            }else {
-                printf(" %d", m->matrice[i][j]);
-            }
+void afficher_matrice(const struct Matrice *m, const char *string, const int integer){
+    int i;
+    printf("\n\n---- %s ----%d\n", string, integer);
+    for(i = 0; i < m->ligne * m->colonne; i++){
+        if (i % m->colonne == 0){
+            // Si c'est la première valeur de la ligne
+            printf("%lld", m->matrice[i]);
+        }else {
+            // tous les autres
+            printf(" %lld", m->matrice[i]);
         }
-        printf("\n");
+        if(i % m->colonne == m->colonne-1){
+            // sauter une ligne à chaque fin de ligne
+            printf("\n");
+        }
     }
 }
 
-/* Fonction qui extracte la colonne c de m dans destination
- 
- DESTINATION == UNE SEULE COLONNE ?? extaction de plusieurs colonne ??
- destination doit être alloué au préalable.
- pour l'instant extraction d'une seule colonne !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
-void extraction_colonne(struct Matrice * m, struct Matrice * destination, int c){
-    int i;
+/* Fonction qui échange les lignes et les colonnes de la matrice m dans destination */
+void echange_ligne_colonne(const struct Matrice * m, struct Matrice * destination){
+    int i, j;
     for (i = 0; i < m->ligne; i++) {
-        destination->matrice[i][0] = m->matrice[i][c];
-    }
-}
-// extraction de la ligne de m dans destination. Pour l'instant une seule ligne
-void extraction_ligne(struct Matrice * m, struct Matrice * destination, int l){
-    int i;
-    for (i = 0; i < m->ligne; i++) {
-        destination->matrice[i][0] = m->matrice[l][i];
+        for(j = 0; j < m->colonne; j++){
+            // destination->matrice[i] = m->matrice[i*m->ligne + c]; // extraction de colonne
+            destination->matrice[i*m->colonne + j] = m->matrice[j*m->ligne + i];
+        }   
     }
 }
 
 
 
 
-void produit_matriciel(struct Matrice * c, struct Matrice * a, struct Matrice * b){
+
+void produit_matriciel(struct Matrice * c, const struct Matrice * a, const struct Matrice * b){
     int i, j, k;
-    for(i = 0; i < a->colonne; i++){
-        for(j = 0; j < b->ligne; j++){
+    for(i = 0; i < a->ligne; i++){
+        for(j = 0; j < b->colonne; j++){
             for(k = 0; k < b->ligne; k++){
-                c->matrice[i][j] = c->matrice[i][j] + a->matrice[i][k] * b->matrice[k][j];
+                c->matrice[i*a->ligne + j] = c->matrice[i*a->ligne + j] + a->matrice[i*a->colonne + k] * b->matrice[j + k*b->colonne];
             }
         }
     }
@@ -81,90 +75,151 @@ void produit_matriciel(struct Matrice * c, struct Matrice * a, struct Matrice * 
 /************************************************/
 
 void generation_matrice_zero(struct Matrice * m){
-	int i, j;
-	
-	m->ligne = 3;
-	m->colonne = 3;
-	
-	allocation_matrice(m);
-	
-	for(i = 0; i < m->ligne; i++){
-		for(j = 0; j < m->colonne; j++){
-			m->matrice[i][j] = 0; //(i+1) * (j+1);
-		}
+    int i;
+	for(i = 0; i < m->ligne * m->colonne; i++){
+		m->matrice[i] = 0;
 	}	
 }
 
-void generation_matrice(struct Matrice * m){
-	int i, j, valeur = 1;
+void generation_matrice_incr(struct Matrice * m){
+	int i, valeur = 1;
 	
-	m->ligne = 3;
-	m->colonne = 3;
-	
-	allocation_matrice(m);
-	
-	for(i = 0; i < m->ligne; i++){
-		for(j = 0; j < m->colonne; j++){
-            m->matrice[i][j] = valeur;//i+j; //(i+1) * (j+1);
-            valeur++;
-		}
+	for(i = 0; i < m->ligne * m->colonne; i++){
+        m->matrice[i] = (i+1) * (valeur+1);
+        valeur++;
 	}	
-}
-
-void generation_matrice_fixe(struct Matrice * m, int l, int c){
-    int i, j;
-    
-    m->ligne = l;
-    m->colonne = c;
-    
-    allocation_matrice(m);
-    
-    for(i = 0; i < m->ligne; i++){
-        for(j = 0; j < m->colonne; j++){
-            m->matrice[i][j] = 0;
-        }
-    }
 }
 
 
 int main (int argc, char *argv[]){
 
-	struct Matrice *A = malloc(sizeof(struct Matrice));
-	generation_matrice(A);
-	afficher_matrice(A, "A");
+    int numprocs, rank;
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	
+    int i, send_error, procs;
+    int size = 3;
 
-	struct Matrice *B = malloc(sizeof(struct Matrice));
-	generation_matrice(B);
-	afficher_matrice(B, "B");
+    /* Matrice C = A * B */
+    struct Matrice *A = malloc(sizeof(struct Matrice));
+    struct Matrice *B = malloc(sizeof(struct Matrice));    
+    struct Matrice *extracte = malloc(sizeof(struct Matrice));
+    struct Matrice *tmpA = malloc(sizeof (struct Matrice));
+    struct Matrice *tmpB = malloc(sizeof (struct Matrice));
+    // struct Matrice *tmpResultat = malloc(sizeof (struct Matrice));
+    struct Matrice *tmpCalcul = malloc(sizeof (struct Matrice));
 
-	struct Matrice *C = malloc(sizeof(struct Matrice));
-	generation_matrice_fixe(C, A->ligne, B->colonne);
-	produit_matriciel(C, A, B);
-	afficher_matrice(C, "C");
-    
-    
-    
-    // test extraction colonne de matrice A
-    struct Matrice *colonne1 = malloc(sizeof(struct Matrice));
-    generation_matrice_fixe(colonne1, A->ligne, 1);
-    struct Matrice *colonne2 = malloc(sizeof(struct Matrice));
-    generation_matrice_fixe(colonne2, A->ligne, 1);
-    struct Matrice *colonne3 = malloc(sizeof(struct Matrice));
-    generation_matrice_fixe(colonne3, A->ligne, 1);
-    
-    extraction_colonne(A, colonne1, 0);
-    extraction_colonne(A, colonne2, 1);
-    extraction_colonne(A, colonne3, 2);
-    afficher_matrice(colonne1, "Colonne1 de A");
-    afficher_matrice(colonne2, "Colonne2 de A");
-    afficher_matrice(colonne3, "Colonne3 de A");
-    
-    extraction_ligne(A, colonne1, 0);
-    extraction_ligne(A, colonne2, 1);
-    extraction_ligne(A, colonne3, 2);
-    afficher_matrice(colonne1, "Ligne1 de A");
-    afficher_matrice(colonne2, "Ligne2 de A");
-    afficher_matrice(colonne3, "Ligne3 de A");
-    
-	return 0;
+    allocation_matrice(A, size, size);
+    allocation_matrice(B, size, size);
+
+    /* Création du Datatypen*/
+    MPI_Datatype Ligne_TYPE;
+    MPI_Type_contiguous(A->colonne, MPI_LONG_LONG, &Ligne_TYPE);
+    MPI_Type_commit(&Ligne_TYPE);
+	
+    if (numprocs >= size){
+        /* Allocation de tmpA et tmpB */
+        allocation_matrice(tmpA, 1, A->colonne);
+        allocation_matrice(tmpB, B->ligne, 1);
+        generation_matrice_zero(tmpA);
+        generation_matrice_zero(tmpB);
+
+        allocation_matrice(extracte, B->ligne, B->colonne);
+        // allocation_matrice(tmpResultat, tmpA->ligne, tmpB->colonne); // stocke le résultat de tous les calculs pour pouvoir Gather
+        allocation_matrice(tmpCalcul, tmpA->ligne, tmpB->colonne);   // stocke le résultat après chaque calcul puis on le met dans la matrice tmpResultat
+
+        if (rank == 0){
+            struct Matrice *C = malloc(sizeof(struct Matrice));
+            allocation_matrice(C, A->ligne, B->colonne);
+
+            generation_matrice_incr(A);
+            generation_matrice_incr(B);
+            echange_ligne_colonne(B, extracte);
+
+            afficher_matrice(A, "A", 111);
+            afficher_matrice(B, "B", 111);
+            // afficher_matrice(extracte, "extracte (echange de lignes/colonnes de B)", -111);
+        }
+        
+    }
+    else if (size % numprocs == 0){
+        //cas où il y a le même nombre de lignes et colonnes pour chaque processus
+        // Nombre de ligne multiple du nombre de processus
+    }
+    else{
+        // cas le plus compliqué ! tous les processeurs n'ont pas le même nombre de lignes et colonnes en charge
+        // moins de processus que de ligne et ne sont pas multiple
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /* Scatter envoie une ligne par processus */
+    send_error = MPI_Scatter(&A->matrice[0], 1, Ligne_TYPE, &tmpA->matrice[0], 1, Ligne_TYPE, 0, MPI_COMM_WORLD);
+    if (send_error != MPI_SUCCESS){
+        printf("Erreur lors de l'envoi de ligne vers chaque processus avec le scatter");
+        exit(1);
+    } 
+    /* Scatter envoie une colonne par processus */
+    send_error = MPI_Scatter(&extracte->matrice[0], 1, Ligne_TYPE, &tmpB->matrice[0], 1, Ligne_TYPE, 0, MPI_COMM_WORLD);
+    if (send_error != MPI_SUCCESS){
+        printf("Erreur lors de l'envoi de colonne vers chaque processus avec le scatter");
+        exit(1);
+    }
+
+    produit_matriciel(tmpCalcul, tmpA, tmpB);
+
+    //affichage du résultat
+    for(procs = 0; procs < A->ligne; procs++){
+        if(rank == procs){
+            afficher_matrice(tmpA, "tmpA", rank);
+            afficher_matrice(tmpB, "tmpB", rank);
+            afficher_matrice(tmpCalcul, "tmpCalcul", rank);
+        }
+        sleep(1);
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    MPI_Type_free(&Ligne_TYPE);
+	MPI_Finalize();
 }
