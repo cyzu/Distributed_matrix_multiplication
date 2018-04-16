@@ -152,10 +152,10 @@ void generation_matrice_incr(struct Matrice * m){
 /************************************************/
 
 int main (int argc, char *argv[]){
-  int numprocs, rank;
-	MPI_Init(&argc, &argv);
-	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int numprocs, rank;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     int size = 4, i;
 
@@ -164,17 +164,17 @@ int main (int argc, char *argv[]){
     struct Matrice *B = (struct Matrice *) malloc(sizeof(struct Matrice));
     struct Matrice *extracte = (struct Matrice *) malloc(sizeof(struct Matrice));
 
-		/* Répartiton des lignes en fonction de la taille de la matrice et du nombre de processus */
-		int * dataCount = (int *) malloc(sizeof(int) * numprocs);
-		int * adresseData = (int *) malloc(sizeof(int) * numprocs);
-		int * lignes = (int *) malloc(sizeof(int) * numprocs);
-		// int dataCount[numprocs], adresseData[numprocs], lignes[numprocs];
-		scatterv(lignes, dataCount, adresseData, size, numprocs);
+    /* Répartiton des lignes en fonction de la taille de la matrice et du nombre de processus */
+    int * dataCount = (int *) malloc(sizeof(int) * numprocs);
+    int * adresseData = (int *) malloc(sizeof(int) * numprocs);
+    int * lignes = (int *) malloc(sizeof(int) * numprocs);
+    // int dataCount[numprocs], adresseData[numprocs], lignes[numprocs];
+    scatterv(lignes, dataCount, adresseData, size, numprocs);
 
     if (rank == 0){
-				allocation_matrice(A, size, size);
-		    allocation_matrice(B, size, size);
-		    allocation_matrice(extracte, B->ligne, B->colonne);
+        allocation_matrice(A, size, size);
+        allocation_matrice(B, size, size);
+        allocation_matrice(extracte, B->ligne, B->colonne);
 
         struct Matrice *C = (struct Matrice *) malloc(sizeof(struct Matrice));
         allocation_matrice(C, A->ligne, B->colonne);
@@ -186,35 +186,35 @@ int main (int argc, char *argv[]){
         afficher_matrice(A, "A", 111);
         afficher_matrice(B, "B", 111);
 
-				A->ligne = lignes[0];
+        A->ligne = lignes[0];
 
-				printf("\n\nRépartition des lignes : \n");
-				for(i = 0; i < numprocs; i++){
-					printf("dataCount[%d] = %d     adresseData[%d] = %d\n", i, dataCount[i], i, adresseData[i]);
-				}
+        printf("\n\nRépartition des lignes : \n");
+        for(i = 0; i < numprocs; i++){
+            printf("dataCount[%d] = %d     adresseData[%d] = %d\n", i, dataCount[i], i, adresseData[i]);
+        }
     }
-		else {
-			allocation_matrice(A, lignes[0], size); // j'alloue les tableaux avec le nombre max de ligne qu'ils vont recevoir en circulation
-			allocation_matrice(B, size, lignes[0]);
-			A->ligne = lignes[rank];								// je définie les nombres de lignes correcte pour le premier tour pour tous les processus
-			B->colonne = lignes[rank];
-			generation_matrice_zero(A);
-	    generation_matrice_zero(B);
-		}
+    else {
+        allocation_matrice(A, lignes[0], size); // j'alloue les tableaux avec le nombre max de ligne qu'ils vont recevoir en circulation
+        allocation_matrice(B, size, lignes[0]);
+        A->ligne = lignes[rank];								// je définie les nombres de lignes correcte pour le premier tour pour tous les processus
+        B->colonne = lignes[rank];
+        generation_matrice_zero(A);
+        generation_matrice_zero(B);
+    }
 
-		int scatter_return = MPI_Scatterv(&A->matrice, dataCount, adresseData, MPI_LONG_LONG, &A->matrice, dataCount[rank], MPI_LONG_LONG, 0, MPI_COMM_WORLD);
-		if (scatter_return != MPI_SUCCESS){
-			printf("Echec MPI_Scatterv !");
-			exit(1);
-		}
-		if (rank == 1) afficher_matrice(A, "A après Scatterv", rank);
+    int scatter_return = MPI_Scatterv(&A->matrice, dataCount, adresseData, MPI_LONG_LONG, &A->matrice, dataCount[rank], MPI_LONG_LONG, 0, MPI_COMM_WORLD);
+    if (scatter_return != MPI_SUCCESS){
+        printf("Echec MPI_Scatterv !");
+        exit(1);
+    }
+    if (rank == 1) afficher_matrice(A, "A après Scatterv", rank);
 
-		free(extracte->matrice);
-		free(extracte);
+    free(extracte->matrice);
+    free(extracte);
 
-	 	free(A->matrice);
+    free(A->matrice);
     free(A);
     free(B->matrice);
     free(B);
-	 	MPI_Finalize();
+    MPI_Finalize();
 }
