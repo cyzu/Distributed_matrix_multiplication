@@ -181,6 +181,7 @@ int main (int argc, char *argv[]){
 
             afficher_matrice(A, "A", 111);
             afficher_matrice(B, "B", 111);
+            afficher_matrice(extract, "extracte", 111);
         }
 
 		  /* Scatter envoie une ligne  et une colonne par processus */

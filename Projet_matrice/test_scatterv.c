@@ -23,23 +23,22 @@ void allocation_matrice(struct Matrice * m, const int l, const int c){
 }
 
 void afficher_matrice(const struct Matrice *m, const char *string, const int integer){
-    int i, j = 0;
+    int i;
     printf("\n\n---- %s (%d x %d)----%d\n", string, m->ligne, m->colonne, integer);
     for (i = 0; i < m->ligne * m->colonne; i++){
-			printf("\n*** j = %d    ", j);
-			usleep(100000);
-        if (j % m->colonne == 0){
+			// printf("\n*** rank = %d    ", integer);
+			// usleep(100000);
+        if (i % m->colonne == 0){
             // Si c'est la première valeur de la ligne
-            printf("%lld", m->matrice[j]);
+            printf("%lld", m->matrice[i]);
         }else {
             // tous les autres
-            printf(" %lld", m->matrice[j]);
+            printf(" %lld", m->matrice[i]);
         }
-        if(j % m->colonne == m->colonne-1){
+        if(i % m->colonne == m->colonne-1){
             // sauter une ligne à chaque fin de ligne
             printf("\n");
         }
-				j++;
     }
 }
 
@@ -51,8 +50,8 @@ int get_case(const struct Matrice * m, int i, int j){
 /* Fonction qui échange les lignes et les colonnes de la matrice m dans destination */
 void echange_ligne_colonne(const struct Matrice * m, struct Matrice * destination){
     int i, j;
-    for (i = 0; i < m->ligne; i++) {
-        for(j = 0; j < m->colonne; j++){
+    for (i = 0; i < destination->ligne; i++) {
+        for(j = 0; j < destination->colonne; j++){
             // destination->matrice[i*m->colonne + j] = m->matrice[j*m->ligne + i];
             destination->matrice[get_case(destination, i, j)] = m->matrice[get_case(m, j, i)];
         }
@@ -165,10 +164,7 @@ int main (int argc, char *argv[]){
     struct Matrice *extracte = (struct Matrice *) malloc(sizeof(struct Matrice));
 
     /* Répartiton des lignes en fonction de la taille de la matrice et du nombre de processus */
-    int * dataCount = (int *) malloc(sizeof(int) * numprocs);
-    int * adresseData = (int *) malloc(sizeof(int) * numprocs);
-    int * lignes = (int *) malloc(sizeof(int) * numprocs);
-    // int dataCount[numprocs], adresseData[numprocs], lignes[numprocs];
+    int dataCount[numprocs], adresseData[numprocs], lignes[numprocs];
     scatterv(lignes, dataCount, adresseData, size, numprocs);
 
     if (rank == 0){
@@ -186,7 +182,8 @@ int main (int argc, char *argv[]){
         afficher_matrice(A, "A", 111);
         afficher_matrice(B, "B", 111);
 
-        A->ligne = lignes[0];
+        A->ligne = lignes[0];	// je redimensionne la matrice A pour le scatterv (du root)
+        B->colonne = lignes[0];
 
         printf("\n\nRépartition des lignes : \n");
         for(i = 0; i < numprocs; i++){
@@ -201,16 +198,27 @@ int main (int argc, char *argv[]){
         generation_matrice_zero(A);
         generation_matrice_zero(B);
     }
+		struct Matrice *tmpB = (struct Matrice *) malloc(sizeof(struct Matrice));
+		allocation_matrice(tmpB, B->colonne, B->ligne);
 
-    int scatter_return = MPI_Scatterv(&A->matrice, dataCount, adresseData, MPI_LONG_LONG, &A->matrice, dataCount[rank], MPI_LONG_LONG, 0, MPI_COMM_WORLD);
-    if (scatter_return != MPI_SUCCESS){
-        printf("Echec MPI_Scatterv !");
-        exit(1);
-    }
-    if (rank == 1) afficher_matrice(A, "A après Scatterv", rank);
+    MPI_Scatterv(A->matrice,	 dataCount, adresseData, MPI_LONG_LONG, A->matrice, dataCount[rank], MPI_LONG_LONG, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(extracte->matrice, dataCount, adresseData, MPI_LONG_LONG, tmpB->matrice, dataCount[rank], MPI_LONG_LONG, 0, MPI_COMM_WORLD);
+		echange_ligne_colonne(tmpB, B);
+		sleep(rank);
+		afficher_matrice(A, "A après Scatterv", rank);
+		afficher_matrice(B, "B après Scatterv", rank);
 
-    free(extracte->matrice);
+    free(tmpB->matrice);
+    free(tmpB);
+		if (rank == 0){
+			free(extracte->matrice);
+		}
     free(extracte);
+
+
+
+
+
 
     free(A->matrice);
     free(A);
