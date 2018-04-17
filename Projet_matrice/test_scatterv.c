@@ -106,7 +106,7 @@ void produit_matriciel(struct Matrice * c, const struct Matrice * a, const struc
 }
 
 
-long long int produit_matriciel_par_case(const struct Matrice * a, const struct Matrice * b){
+/*long long int produit_matriciel_par_case(const struct Matrice * a, const struct Matrice * b){
     int i, j, k;
     long long int c = 0;
     for(i = 0; i < a->ligne; i++){
@@ -119,8 +119,19 @@ long long int produit_matriciel_par_case(const struct Matrice * a, const struct 
     }
     // printf("resultat calcul c = %d ********\n", c);
     return c;
-}
+}*/
 
+long long int produit_matriciel_par_case(const struct Matrice * a, const struct Matrice * b, const int ligne, const int colonne){
+    int k;
+    long long int c = 0;
+		// printf("******** c = 0 ");
+    for(k = 0; k < a->colonne; k++){
+        c = c + a->matrice[get_case(a, ligne, k)] * b->matrice[get_case(b, k, colonne)];
+				// printf("+= a[%d] * b[%d] ", get_case(a, ligne, k), get_case(b, k, colonne));
+    }
+		// printf("\n");
+    return c;
+}
 
 /************************************************/
 /************************************************/
@@ -156,7 +167,7 @@ int main (int argc, char *argv[]){
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    int size = 4, i;
+    int size = 4, i, j;
 
     /* Matrice C = A * B */
     struct Matrice *A = (struct Matrice *) malloc(sizeof(struct Matrice));
@@ -199,24 +210,31 @@ int main (int argc, char *argv[]){
         generation_matrice_zero(B);
     }
 		struct Matrice *tmpB = (struct Matrice *) malloc(sizeof(struct Matrice));
-		allocation_matrice(tmpB, B->colonne, B->ligne);
+		allocation_matrice(tmpB, B->colonne, B->ligne); // on met dans cette matrice les colonnes de B avec lignes et colonnes inversées
 
     MPI_Scatterv(A->matrice,	 dataCount, adresseData, MPI_LONG_LONG, A->matrice, dataCount[rank], MPI_LONG_LONG, 0, MPI_COMM_WORLD);
     MPI_Scatterv(extracte->matrice, dataCount, adresseData, MPI_LONG_LONG, tmpB->matrice, dataCount[rank], MPI_LONG_LONG, 0, MPI_COMM_WORLD);
-		echange_ligne_colonne(tmpB, B);
+		echange_ligne_colonne(tmpB, B); // On met la bonne matrice dans B
 		sleep(rank);
-		afficher_matrice(A, "A après Scatterv", rank);
-		afficher_matrice(B, "B après Scatterv", rank);
+		// afficher_matrice(A, "A après Scatterv", rank);
+		// afficher_matrice(B, "B après Scatterv", rank);
 
     free(tmpB->matrice);
-    free(tmpB);
 		if (rank == 0){
 			free(extracte->matrice);
 		}
     free(extracte);
+		allocation_matrice(tmpB, B->ligne, B->colonne); // on va mettre dans cette matrice le résultat de calcul de chaque processus (les colonnes de la matrice C)
+		generation_matrice_zero(tmpB);
 
-
-
+		for(i = 0; i < A->ligne; i++){
+			for (j = 0; j < B->colonne; j++) {
+				tmpB->matrice[get_case(tmpB, i, j)] = produit_matriciel_par_case(A, B, i, j);
+			}
+		}
+		sleep(rank);
+		afficher_matrice(tmpB, "tmpB après premier calcul", rank);
+		free(tmpB);
 
 
 
