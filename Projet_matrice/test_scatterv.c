@@ -24,7 +24,7 @@ void allocation_matrice(struct Matrice * m, const int l, const int c){
 
 void afficher_matrice(const struct Matrice *m, const char *string, const int integer){
     int i;
-    printf("\n\n---- %s (%d x %d)----%d\n", string, m->ligne, m->colonne, integer);
+    printf("\n\n---- %s ----%d\n", string, integer);
     for (i = 0; i < m->ligne * m->colonne; i++){
 			// printf("\n*** rank = %d    ", integer);
 			// usleep(100000);
@@ -94,9 +94,7 @@ void count_lignes_prec(int * lignes, int * lignes_prec, const int numprocs){
 		}
 		for (i = 1; i < numprocs; i++){
 				lignes_prec[i] = lignes_prec[i - 1] + lignes[i - 1];
-				printf("precedent[%d] = %d \n", i, lignes_prec[i]);
 		}
-		printf("precedent[%d] = %d \n", 0, lignes_prec[0]);
 }
 
 /************************************************/
@@ -105,43 +103,13 @@ void count_lignes_prec(int * lignes, int * lignes_prec, const int numprocs){
 /************************************************/
 /************************************************/
 
-/*void produit_matriciel(struct Matrice * c, const struct Matrice * a, const struct Matrice * b){
-    int i, j, k;
-    for(i = 0; i < a->ligne; i++){
-        for(j = 0; j < b->colonne; j++){
-            for(k = 0; k < b->ligne; k++){
-                // c->matrice[i*a->ligne + j] = c->matrice[i*a->ligne + j] + a->matrice[i*a->colonne + k] * b->matrice[j + k*b->colonne];
-                c->matrice[get_case(c, i, j)] = c->matrice[get_case(c, i, j)] + a->matrice[get_case(a, i, k)] * b->matrice[get_case(b, k, j)];
-            }
-        }
-    }
-}*/
-
-
-/*long long int produit_matriciel_par_case(const struct Matrice * a, const struct Matrice * b){
-    int i, j, k;
-    long long int c = 0;
-    for(i = 0; i < a->ligne; i++){
-        for(j = 0; j < b->colonne; j++){
-            for(k = 0; k < b->ligne; k++){
-                // c = c + a->matrice[i*a->colonne + k] * b->matrice[j + k*b->colonne];
-                c = c + a->matrice[get_case(a, i, k)] * b->matrice[get_case(b, k, j)];
-            }
-        }
-    }
-    // printf("resultat calcul c = %d ********\n", c);
-    return c;
-}*/
-
+/* Renvoie le résultat du produit matriciel de la case (ligne, colonne)*/
 long long int produit_matriciel_par_case(const struct Matrice * a, const struct Matrice * b, const int ligne, const int colonne){
     int k;
     long long int c = 0;
-		// printf("******** c = 0 ");
     for(k = 0; k < a->colonne; k++){
         c = c + a->matrice[get_case(a, ligne, k)] * b->matrice[get_case(b, k, colonne)];
-				// printf("+= a[%d] * b[%d] ", get_case(a, ligne, k), get_case(b, k, colonne));
     }
-		// printf("\n");
     return c;
 }
 
@@ -180,6 +148,7 @@ int main (int argc, char *argv[]){
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     int size = 4, i, j, l_actuelle, tour;
+		int suivant, precedent;
 
     /* Matrice C = A * B */
     struct Matrice *A = (struct Matrice *) malloc(sizeof(struct Matrice));
@@ -225,32 +194,66 @@ int main (int argc, char *argv[]){
 		struct Matrice *tmpB = (struct Matrice *) malloc(sizeof(struct Matrice));
 		allocation_matrice(tmpB, B->colonne, B->ligne); // on met dans cette matrice les colonnes de B avec lignes et colonnes inversées
 
+		/* Envoie aux processeurs différentes lignes et colonnes des matrices A et B */
     MPI_Scatterv(A->matrice,	 dataCount, adresseData, MPI_LONG_LONG, A->matrice, dataCount[rank], MPI_LONG_LONG, 0, MPI_COMM_WORLD);
     MPI_Scatterv(extracte->matrice, dataCount, adresseData, MPI_LONG_LONG, tmpB->matrice, dataCount[rank], MPI_LONG_LONG, 0, MPI_COMM_WORLD);
 		echange_ligne_colonne(tmpB, B); // On met la bonne matrice dans B
 		sleep(rank);
-		// afficher_matrice(A, "A après Scatterv", rank);
-		// afficher_matrice(B, "B après Scatterv", rank);
 
     free(tmpB->matrice);
 		if (rank == 0){
+			/* elle a été allouée seulement dans le processus 0 */
 			free(extracte->matrice);
 		}
     free(extracte);
 		allocation_matrice(tmpB, B->ligne, B->colonne); // on va mettre dans cette matrice le résultat de calcul de chaque processus (les colonnes de la matrice C)
 		generation_matrice_zero(tmpB);
 
+		struct Matrice *tmpCirculation = (struct Matrice *) malloc(sizeof(struct Matrice)); // Matrice duplique de A, pour la circulation des lignes_prec
+		allocation_matrice(tmpCirculation, lignes[0], size); //allocation de la taille max possible de la matrice A
+		generation_matrice_zero(tmpCirculation);
 
-		tour = 0;
-		l_actuelle = (rank - tour + numprocs) % numprocs;
+		/* Création du Datatype */
+    MPI_Datatype Ligne_TYPE;
+    MPI_Type_contiguous(lignes[0] * size, MPI_LONG_LONG, &Ligne_TYPE); //allocation de la taille max possible de la matrice A
+    MPI_Type_commit(&Ligne_TYPE);
 
-		for(i = 0; i < A->ligne; i++){
-			for (j = 0; j < B->colonne; j++) {
-				tmpB->matrice[get_case(tmpB, i + lignes_prec[l_actuelle], j)] = produit_matriciel_par_case(A, B, i, j);
-			}
+		suivant = (rank + numprocs + 1) % numprocs;
+		precedent = (rank + numprocs - 1) % numprocs;
+
+		for(tour = 0; tour < numprocs; tour++){
+				l_actuelle = (rank - tour + numprocs) % numprocs;
+				A->ligne = lignes[l_actuelle]; // on redimensionne la taille de la matrice après réception
+
+				/* Calculs des matrices dans tmpB (à la bonne case) */
+				for(i = 0; i < A->ligne; i++){
+						for (j = 0; j < B->colonne; j++) {
+								tmpB->matrice[get_case(tmpB, i + lignes_prec[l_actuelle], j)] = produit_matriciel_par_case(A, B, i, j);
+						}
+				}
+				if (tour >= numprocs - 1){
+					/* Il n'y a pas de circulation à faire au dernier tour */
+						free(tmpCirculation->matrice);
+						free(tmpCirculation);
+				}
+				else {
+					/* Effectuer la circulation de lignes dans les autres tours */
+						copie_matrice(A, tmpCirculation);
+						// sleep(rank);
+						if (rank == 0){
+							// le premier envoie puis recois
+								MPI_Send(&tmpCirculation->matrice[0], 1, Ligne_TYPE, suivant, 100+rank, MPI_COMM_WORLD);
+								MPI_Recv(&A->matrice[0], 1, Ligne_TYPE, precedent, 100+precedent, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+						}
+						else if (numprocs <= size) {
+							// les autres reçoivent puis envoient
+								MPI_Recv(&A->matrice[0], 1, Ligne_TYPE, precedent, 100+precedent, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+								MPI_Send(&tmpCirculation->matrice[0], 1, Ligne_TYPE, suivant, 100+rank, MPI_COMM_WORLD);
+						}
+				}
 		}
-		sleep(rank);
-		afficher_matrice(tmpB, "tmpB après premier calcul", rank);
+		afficher_matrice(tmpB, "tmpB final", rank);
+		free(tmpB->matrice);
 		free(tmpB);
 
 
@@ -259,5 +262,6 @@ int main (int argc, char *argv[]){
     free(A);
     free(B->matrice);
     free(B);
+		MPI_Type_free(&Ligne_TYPE);
     MPI_Finalize();
 }
