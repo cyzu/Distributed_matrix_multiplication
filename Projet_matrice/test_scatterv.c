@@ -67,24 +67,36 @@ void copie_matrice(const struct Matrice * m, struct Matrice * destination){
 }
 
 void scatterv(int * lignes, int * dataCount, int * adresseData, int size, int numprocs){
-	int i, partage = size;
+		int i, partage = size;
 
-	/* Calcul de nombre de ligne à envoyer par colonne (pour tous les cas)*/
-	for (i = 0; i < numprocs; i++) {
-		lignes[i] = partage / numprocs;
-	}
-	partage = partage % numprocs;
-	for (i = 0; i < partage; i++) {
-		lignes[i]++;
-	}
+		/* Calcul de nombre de ligne à envoyer par colonne (pour tous les cas)*/
+		for (i = 0; i < numprocs; i++) {
+				lignes[i] = partage / numprocs;
+		}
+		partage = partage % numprocs;
+		for (i = 0; i < partage; i++) {
+				lignes[i]++;
+		}
 
-	/* Calcul de nombre de cases à envoyer et leur adresse pour MPI_Scatterv */
-	int accumulateur = 0;
-	for(i = 0; i < numprocs; i++){
-		adresseData[i] = accumulateur;
-		dataCount[i] = lignes[i] * size;
-		accumulateur += lignes[i] * size;
-	}
+		/* Calcul de nombre de cases à envoyer et leur adresse pour MPI_Scatterv */
+		int accumulateur = 0;
+		for(i = 0; i < numprocs; i++){
+				adresseData[i] = accumulateur;
+				dataCount[i] = lignes[i] * size;
+				accumulateur += lignes[i] * size;
+		}
+}
+
+void count_lignes_prec(int * lignes, int * lignes_prec, const int numprocs){
+		int i;
+		for (i = 0; i < numprocs; i++){
+				lignes_prec[i] = 0;
+		}
+		for (i = 1; i < numprocs; i++){
+				lignes_prec[i] = lignes_prec[i - 1] + lignes[i - 1];
+				printf("precedent[%d] = %d \n", i, lignes_prec[i]);
+		}
+		printf("precedent[%d] = %d \n", 0, lignes_prec[0]);
 }
 
 /************************************************/
@@ -93,7 +105,7 @@ void scatterv(int * lignes, int * dataCount, int * adresseData, int size, int nu
 /************************************************/
 /************************************************/
 
-void produit_matriciel(struct Matrice * c, const struct Matrice * a, const struct Matrice * b){
+/*void produit_matriciel(struct Matrice * c, const struct Matrice * a, const struct Matrice * b){
     int i, j, k;
     for(i = 0; i < a->ligne; i++){
         for(j = 0; j < b->colonne; j++){
@@ -103,7 +115,7 @@ void produit_matriciel(struct Matrice * c, const struct Matrice * a, const struc
             }
         }
     }
-}
+}*/
 
 
 /*long long int produit_matriciel_par_case(const struct Matrice * a, const struct Matrice * b){
@@ -167,7 +179,7 @@ int main (int argc, char *argv[]){
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    int size = 4, i, j;
+    int size = 4, i, j, l_actuelle, tour;
 
     /* Matrice C = A * B */
     struct Matrice *A = (struct Matrice *) malloc(sizeof(struct Matrice));
@@ -175,8 +187,9 @@ int main (int argc, char *argv[]){
     struct Matrice *extracte = (struct Matrice *) malloc(sizeof(struct Matrice));
 
     /* Répartiton des lignes en fonction de la taille de la matrice et du nombre de processus */
-    int dataCount[numprocs], adresseData[numprocs], lignes[numprocs];
+    int dataCount[numprocs], adresseData[numprocs], lignes[numprocs], lignes_prec[numprocs];
     scatterv(lignes, dataCount, adresseData, size, numprocs);
+		count_lignes_prec(lignes, lignes_prec, numprocs);
 
     if (rank == 0){
         allocation_matrice(A, size, size);
@@ -227,9 +240,13 @@ int main (int argc, char *argv[]){
 		allocation_matrice(tmpB, B->ligne, B->colonne); // on va mettre dans cette matrice le résultat de calcul de chaque processus (les colonnes de la matrice C)
 		generation_matrice_zero(tmpB);
 
+
+		tour = 0;
+		l_actuelle = (rank - tour + numprocs) % numprocs;
+
 		for(i = 0; i < A->ligne; i++){
 			for (j = 0; j < B->colonne; j++) {
-				tmpB->matrice[get_case(tmpB, i, j)] = produit_matriciel_par_case(A, B, i, j);
+				tmpB->matrice[get_case(tmpB, i + lignes_prec[l_actuelle], j)] = produit_matriciel_par_case(A, B, i, j);
 			}
 		}
 		sleep(rank);
