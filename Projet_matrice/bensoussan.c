@@ -2,32 +2,34 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include <time.h>
+//#include <time.h>
 
 struct Matrice{
 	int ligne, colonne;
 	long long int *matrice;
 };
 
-/************************************************/
-/************************************************/
-/*************** FONCTIONS UTILES ***************/
-/************************************************/
-/************************************************/
+/**/
+/**/
+/**/
+/*			==  ==	======	==	==		=====			*/
+/*			==  ==   	== 	 	== 	==		=					*/
+/*			==  ==   	== 	 	== 	==		===				*/
+/*			 ====	  	==	 	== 	=====	=====			*/
+/**/
+/**/
+/**/
 
 void allocation_matrice(struct Matrice * m, const int l, const int c){
     m->ligne = l;
     m->colonne = c;
-
-	m->matrice = malloc(sizeof(long long int*) * m->ligne * m->colonne);
+		m->matrice = malloc(sizeof(long long int*) * m->ligne * m->colonne);
 }
 
-void afficher_matrice(const struct Matrice *m, const char *string, const int integer){
+void afficher_matrice(const struct Matrice *m){
     int i;
-    printf("\n\n---- %s ----%d\n", string, integer);
+    // printf("\n\n---- %s ----%d\n", string, integer);
     for (i = 0; i < m->ligne * m->colonne; i++){
-			// printf("\n*** rank = %d    ", integer);
-			// usleep(100000);
         if (i % m->colonne == 0){
             // Si c'est la première valeur de la ligne
             printf("%lld", m->matrice[i]);
@@ -95,11 +97,38 @@ void count_lignes_prec(int * lignes, int * lignes_prec, const int nb_procs){
 		}
 }
 
-/************************************************/
-/************************************************/
-/*************** PRODUIT MATRICIEL **************/
-/************************************************/
-/************************************************/
+int get_matrice_size(char * filename){
+	FILE *file = fopen(filename, "r");
+	int size = 0;
+	long long int valeur;
+
+	if (file == NULL) {
+			printf("Erreur : l'ouverture du fichier '%s' a échoué !\n", filename);
+			exit(1);
+	}
+	/* Compteur du nombre d'entier pour connaitre la taille du tableau à allouer */
+	while (fscanf(file, "%lld", &valeur) != EOF){
+			size++;
+	}
+	/* Remettre le curseur au début du fichier */
+	rewind(file);
+	fclose(file);
+
+	size = sqrt(size);
+	return size;
+}
+
+
+/**/
+/**/
+/**/
+/*    ====== 	======	 ======		======	==	 ==	==	========		*/
+/*		==	===	==	===	==		==	==	 ==	==	 ==	==		 ==				*/
+/*		======	======	==		==	==	 ==	==	 ==	==		 ==				*/
+/*		==			==	 ==	 ======		======	 =====	==		 ==				*/
+/**/
+/**/
+/**/
 
 /* Renvoie le résultat du produit matriciel de la case (ligne, colonne)*/
 long long int produit_matriciel_par_case(const struct Matrice * a, const struct Matrice * b, const int ligne, const int colonne){
@@ -111,11 +140,17 @@ long long int produit_matriciel_par_case(const struct Matrice * a, const struct 
     return c;
 }
 
-/************************************************/
-/************************************************/
-/************ GENERATEURS DE MATRICE ************/
-/************************************************/
-/************************************************/
+
+/**/
+/**/
+/**/
+/*     =====	===== == 		==	=====	=====			 ===		======	=====	==	==	=====		*/
+/*		==			==		====	==	==		==	==	 	==	==	 	==		==		==	==	==  ==	*/
+/*		==  ===	=== 	==  ====	===		=====		 ==	== == 	==		===		==	==	=====		*/
+/*		 =====	=====	==	  ==	=====	==	==	==			==	==		=====	 ====	 	==  ==	*/
+/**/
+/**/
+/**/
 
 void generation_matrice_zero(struct Matrice * m){
     int i;
@@ -133,11 +168,38 @@ void generation_matrice_incr(struct Matrice * m){
 	}
 }
 
-/************************************************/
-/************************************************/
-/********************* MAIN *********************/
-/************************************************/
-/************************************************/
+void generation_matrice_from_file(struct Matrice * m, const char * filename, const int size){
+    FILE *file = fopen(filename, "r");
+    int i;
+    long long int valeur;
+
+    if (file == NULL) {
+        printf("Erreur : l'ouverture du fichier '%s' a échoué !\n", filename);
+        exit(1);
+    }
+    /* Remettre le curseur au début du fichier */
+    rewind(file);
+
+    allocation_matrice(m, size, size);
+
+    /* Insersion des valeurs */
+    for(i = 0; i < m->ligne * m->colonne; i++){
+        fscanf(file, "%lld", &valeur);
+        m->matrice[i] = valeur;
+    }
+    fclose(file);
+}
+
+/**/
+/**/
+/**/
+/*				=      =		 ===			==	==		==  		*/
+/*				===	 ===		==  ==		==	====	==			*/
+/*				== ==	==	 ==	== ==		==	==	====			*/
+/*				==		==	==		 	==	==	==		==			*/
+/**/
+/**/
+/**/
 
 int main (int argc, char *argv[]){
     int numprocs, rank;
@@ -145,8 +207,35 @@ int main (int argc, char *argv[]){
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    int size = 4, i, j, l_actuelle, tour;
+
+		/************************************************/
+		/*										Usage											*/
+		/************************************************/
+
+		if (argc - 1 < 2){
+				printf("Usage : mpirun -oversubscribe -np <num> %s <filename1> <filename2>\n ", argv[0]);
+				MPI_Finalize();
+				exit(0);
+		}
+
+
+		/************************************************/
+		/*							Allocation de A et B						*/
+		/************************************************/
+
+    int size, i, j, l_actuelle, tour;
     int suivant, precedent;
+
+		/* Matrice C = A * B */
+		struct Matrice *A = (struct Matrice *) malloc(sizeof(struct Matrice));
+		struct Matrice *B = (struct Matrice *) malloc(sizeof(struct Matrice));
+		struct Matrice *extracte = (struct Matrice *) malloc(sizeof(struct Matrice));
+
+		size = get_matrice_size(argv[1]);
+
+		/************************************************/
+		/*			Préparation scatter et circulation			*/
+		/************************************************/
 
     int nb_procs = numprocs > size ? size : numprocs;
 
@@ -154,27 +243,20 @@ int main (int argc, char *argv[]){
 		MPI_Comm_size(MPI_COMM_WORLD, &nb_procs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    /* Matrice C = A * B */
-    struct Matrice *A = (struct Matrice *) malloc(sizeof(struct Matrice));
-    struct Matrice *B = (struct Matrice *) malloc(sizeof(struct Matrice));
-    struct Matrice *extracte = (struct Matrice *) malloc(sizeof(struct Matrice));
-
     /* Répartiton des lignes en fonction de la taille de la matrice et du nombre de processus */
     int dataCount[nb_procs], adresseData[nb_procs], lignes[nb_procs], lignes_prec[nb_procs];
     scatterv(lignes, dataCount, adresseData, size, nb_procs);
 		count_lignes_prec(lignes, lignes_prec, nb_procs);
 
     if (rank == 0){
-        allocation_matrice(A, size, size);
-        allocation_matrice(B, size, size);
-        allocation_matrice(extracte, B->ligne, B->colonne);
+				generation_matrice_from_file(A, argv[1], size);
+				generation_matrice_from_file(B, argv[2], size);
 
-        generation_matrice_incr(A);
-        generation_matrice_incr(B);
+        allocation_matrice(extracte, B->ligne, B->colonne);
         echange_ligne_colonne(B, extracte);
 
-        afficher_matrice(A, "A", 111);
-        afficher_matrice(B, "B", 111);
+        // afficher_matrice(A);
+        // afficher_matrice(B);
 
         A->ligne = lignes[0];	// je redimensionne la matrice A pour le scatterv (du root)
         B->colonne = lignes[0];
@@ -183,6 +265,7 @@ int main (int argc, char *argv[]){
         for(i = 0; i < nb_procs; i++){
             printf("dataCount[%d] = %d     adresseData[%d] = %d\n", i, dataCount[i], i, adresseData[i]);
         }*/
+
     }
     else {
         allocation_matrice(A, lignes[0], size); // j'alloue les tableaux avec le nombre max de ligne qu'ils vont recevoir en circulation
@@ -195,12 +278,15 @@ int main (int argc, char *argv[]){
     struct Matrice *tmpB = (struct Matrice *) malloc(sizeof(struct Matrice));
 		allocation_matrice(tmpB, B->colonne, B->ligne); // on met dans cette matrice les colonnes de B avec lignes et colonnes inversées
 
+
+		/************************************************/
+    /* 										Scatter										*/
+		/************************************************/
+
 		/* Envoie aux processeurs différentes lignes et colonnes des matrices A et B */
     MPI_Scatterv(A->matrice, dataCount, adresseData, MPI_LONG_LONG, A->matrice, dataCount[rank], MPI_LONG_LONG, 0, MPI_COMM_WORLD);
     MPI_Scatterv(extracte->matrice, dataCount, adresseData, MPI_LONG_LONG, tmpB->matrice, dataCount[rank], MPI_LONG_LONG, 0, MPI_COMM_WORLD);
     echange_ligne_colonne(tmpB, B); // On met la bonne matrice dans B
-
-		// sleep(rank);
 
     free(tmpB->matrice);
     if (rank == 0){
@@ -215,7 +301,11 @@ int main (int argc, char *argv[]){
     allocation_matrice(tmpCirculation, lignes[0], size); //allocation de la taille max possible de la matrice A
     generation_matrice_zero(tmpCirculation);
 
-    /* Création du Datatype */
+
+		/************************************************/
+    /* 							Création du datatype 						*/
+		/************************************************/
+
     MPI_Datatype Ligne_TYPE;
     MPI_Type_contiguous(lignes[0] * size, MPI_LONG_LONG, &Ligne_TYPE); //allocation de la taille max possible de la matrice A
     MPI_Type_commit(&Ligne_TYPE);
@@ -223,8 +313,12 @@ int main (int argc, char *argv[]){
     suivant = (rank + nb_procs + 1) % nb_procs;
     precedent = (rank + nb_procs - 1) % nb_procs;
 
-    /* Calculs et circulation des lignes de matrics */
-    for(tour = 0; tour < nb_procs; tour++){
+
+		/************************************************/
+    /* 						Calculs et circulation						*/
+		/************************************************/
+
+		for(tour = 0; tour < nb_procs; tour++){
             l_actuelle = (rank - tour + nb_procs) % nb_procs;
             A->ligne = lignes[l_actuelle]; // on redimensionne la taille de la matrice après réception
 
@@ -266,6 +360,11 @@ int main (int argc, char *argv[]){
         A->ligne = size;
         A->colonne = size;
     }
+
+		/************************************************/
+    /* 					Gather et affichage final 					*/
+		/************************************************/
+
     MPI_Gatherv(B->matrice, dataCount[rank], MPI_LONG_LONG, A->matrice, dataCount, adresseData, MPI_LONG_LONG, 0, MPI_COMM_WORLD);
 
     if (rank == 0){
@@ -273,11 +372,15 @@ int main (int argc, char *argv[]){
         allocation_matrice(C, A->ligne, B->colonne);
 
         echange_ligne_colonne(A, C);
-        afficher_matrice(C, "C", rank);
+        afficher_matrice(C);
 
 				free(C->matrice);
 				free(C);
     }
+
+		/************************************************/
+		/* 										Free											*/
+		/************************************************/
     free(A->matrice);
     free(A);
     free(B->matrice);
