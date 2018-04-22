@@ -1,0 +1,22 @@
+J'utilise une structure matricielle linéarisée.
+    struct Matrice{
+    	int ligne, colonne;
+    	long long int *matrice;
+    };
+
+Fonctionnalités implémentées :
+  - Calcul du produit matriciel avec N multiple de P
+  - Gestion du déséquilibre dans le calcul, i.e N non multiple de P
+
+void scatterv(int * lignes, int * dataCount, int * adresseData, const int size, const int nb_procs)
+  Cette fonction calcule la répartition des lignes en fonction de la taille de la matrice et du nombre de processeurs.
+  lignes[] contient le nombre de ligne que chaque processeurs vont recevoir
+  dataCount[] contient le nombre de valeurs pour chaque processeurs
+  adresseData[] contient l'indice de la première valeur à envoyer pour chaque processeurs de la matrice A.
+
+long long int produit_matriciel_par_case(const struct Matrice * a, const struct Matrice * b, const int ligne, const int colonne)
+  Cette fonction effectue le produit matriciel de A * B pour la ligne ligne de A et la colonne colonne de B.
+  Elle renvoie la valeur calculée.
+
+Dans le main j'ai implémenté la circulation des lignes entre les processeurs. A chaque tour, les processeurs calculent le produit matriciel de leur bout de matrice, en stockant le résultat dans une matrice.
+A la fin de tous les tours, chaque processeurs possèdent une ou plusieurs colonne de la matrice C final. Je rassemble ces matrices en utilisant un Gather puis le programme se termine.

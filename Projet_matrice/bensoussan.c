@@ -1,8 +1,7 @@
 #include <mpi.h>
+#include <omp.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <math.h>
-//#include <time.h>
 
 struct Matrice{
 	int ligne, colonne;
@@ -28,7 +27,6 @@ void allocation_matrice(struct Matrice * m, const int l, const int c){
 
 void afficher_matrice(const struct Matrice *m){
     int i;
-    // printf("\n\n---- %s ----%d\n", string, integer);
     for (i = 0; i < m->ligne * m->colonne; i++){
         if (i % m->colonne == 0){
             // Si c'est la première valeur de la ligne
@@ -51,7 +49,9 @@ int get_case(const struct Matrice * m, int i, int j){
 /* Fonction qui échange les lignes et les colonnes de la matrice m dans destination */
 void echange_ligne_colonne(const struct Matrice * m, struct Matrice * destination){
     int i, j;
+		#pragma omp parallel for
     for (i = 0; i < destination->ligne; i++) {
+				#pragma omp parallel for
         for(j = 0; j < destination->colonne; j++){
             destination->matrice[get_case(destination, i, j)] = m->matrice[get_case(m, j, i)];
         }
@@ -61,6 +61,7 @@ void echange_ligne_colonne(const struct Matrice * m, struct Matrice * destinatio
 /* Fonction qui copie la matrice m dans destination (allocation doit être fait avant) */
 void copie_matrice(const struct Matrice * m, struct Matrice * destination){
     int i;
+		#pragma omp parallel for
     for (i = 0; i < m->ligne * m->colonne; i++){
         destination->matrice[i] = m->matrice[i];
     }
@@ -70,16 +71,19 @@ void scatterv(int * lignes, int * dataCount, int * adresseData, const int size, 
 		int i, partage = size;
 
 		/* Calcul de nombre de ligne à envoyer par colonne (pour tous les cas)*/
+		#pragma omp parallel for
 		for (i = 0; i < nb_procs; i++) {
 				lignes[i] = partage / nb_procs;
 		}
 		partage = partage % nb_procs;
+		#pragma omp parallel for
 		for (i = 0; i < partage; i++) {
 				lignes[i]++;
 		}
 
 		/* Calcul de nombre de cases à envoyer et leur adresse pour MPI_Scatterv */
 		int accumulateur = 0;
+		#pragma omp parallel for
 		for(i = 0; i < nb_procs; i++){
 				adresseData[i] = accumulateur;
 				dataCount[i] = lignes[i] * size;
@@ -89,33 +93,35 @@ void scatterv(int * lignes, int * dataCount, int * adresseData, const int size, 
 
 void count_lignes_prec(int * lignes, int * lignes_prec, const int nb_procs){
 		int i;
+		#pragma omp parallel for
 		for (i = 0; i < nb_procs; i++){
 				lignes_prec[i] = 0;
 		}
+		#pragma omp parallel for
 		for (i = 1; i < nb_procs; i++){
 				lignes_prec[i] = lignes_prec[i - 1] + lignes[i - 1];
 		}
 }
 
 int get_matrice_size(char * filename){
-	FILE *file = fopen(filename, "r");
-	int size = 0;
-	long long int valeur;
+		FILE *file = fopen(filename, "r");
+		int size = 0;
+		long long int valeur = 0;
 
-	if (file == NULL) {
-			printf("Erreur : l'ouverture du fichier '%s' a échoué !\n", filename);
-			exit(1);
-	}
-	/* Compteur du nombre d'entier pour connaitre la taille du tableau à allouer */
-	while (fscanf(file, "%lld", &valeur) != EOF){
-			size++;
-	}
-	/* Remettre le curseur au début du fichier */
-	rewind(file);
-	fclose(file);
-
-	size = sqrt(size);
-	return size;
+		if (file == NULL) {
+				printf("Erreur : l'ouverture du fichier '%s' a échoué !\n", filename);
+				exit(1);
+		}
+		/* Compteur du nombre d'entier pour connaitre la taille de la matrice à allouer */
+		while(valeur != '\n'){
+			if (valeur == ' '){
+				size++;
+			}
+			valeur = fgetc(file);
+		}
+		size++; // compte la dernière valeurs
+		fclose(file);
+		return size;
 }
 
 
@@ -179,7 +185,6 @@ void generation_matrice_from_file(struct Matrice * m, const char * filename, con
     }
     /* Remettre le curseur au début du fichier */
     rewind(file);
-
     allocation_matrice(m, size, size);
 
     /* Insersion des valeurs */
@@ -255,17 +260,8 @@ int main (int argc, char *argv[]){
         allocation_matrice(extracte, B->ligne, B->colonne);
         echange_ligne_colonne(B, extracte);
 
-        // afficher_matrice(A);
-        // afficher_matrice(B);
-
         A->ligne = lignes[0];	// je redimensionne la matrice A pour le scatterv (du root)
         B->colonne = lignes[0];
-
-        /*printf("\n\nRépartition des lignes : \n");
-        for(i = 0; i < nb_procs; i++){
-            printf("dataCount[%d] = %d     adresseData[%d] = %d\n", i, dataCount[i], i, adresseData[i]);
-        }*/
-
     }
     else {
         allocation_matrice(A, lignes[0], size); // j'alloue les tableaux avec le nombre max de ligne qu'ils vont recevoir en circulation
@@ -323,7 +319,9 @@ int main (int argc, char *argv[]){
             A->ligne = lignes[l_actuelle]; // on redimensionne la taille de la matrice après réception
 
             /* Calculs des matrices dans tmpB (à la bonne case) */
+						#pragma omp parallel for
             for(i = 0; i < A->ligne; i++){
+										#pragma omp parallel for
                     for (j = 0; j < B->colonne; j++) {
                             tmpB->matrice[get_case(tmpB, i + lignes_prec[l_actuelle], j)] = produit_matriciel_par_case(A, B, i, j);
                     }
