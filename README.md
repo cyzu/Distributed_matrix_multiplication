@@ -27,14 +27,18 @@ Pour chaque étape de l'algorithme, j'utilise un algorithme en 3 phases :
 ##### Contraintes du projet
 - Le programme lit les valeurs à partir d'un **fichier texte** passé en paramètre
 - La séquence doit contenir **2^n élements**
-- Chaque élement doit être des entiers (entre **INT_MIN et INT_MAX**)
+- Chaque élement doit être des entiers (entre **INT_MIN et INT_MAX** inclus)
 
 ## Projet 2
 Effectuer un produit matriciel en parallèle, en échangeant les informations entres processeurs ([ici](https://sites.google.com/site/fabricehuet/teaching/parallelisme-et-distribution/projet---produit-matriciel-distribue)).
 
-Les processeurs sont disposés en anneau et chaque processeurs feront le calcul pour une ou plusieurs cases de la matrices en fonction de la taille de la matrice.
+1. C = A * B
+2. Les processeurs sont disposés en anneau.
+3. On répartis les lignes de A et les colonnes de B a chaque processeurs (en utilisant **MPI_Scatter**) puis effectuent un premier calcul.
+4. Les processeurs s'échangeront les lignes de A reçus puis calculent.
+5. Ils répètent cette opération jusqu'a avoir calculé toute une colonne de la matrice C.
+6. A l'aide d'un gather on ramène toutes les colonnes calculés vers C et le produit matriciel utilisant plusieurs processeus est terminé !
 
-[ ] explication de l'algo
 ##### Contraintes du projet
 - Les matrices initiales sont données en paramètre sous forme de **fichiers textes**
 - Ce sont des matrices carrées (de la forme **N*N**)
