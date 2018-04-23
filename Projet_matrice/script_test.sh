@@ -20,7 +20,7 @@ $CC -g -Wall -o $2 $1
 for i in {1..11}; do
     $RUN --oversubscribe -np $3 ./$2 Test/test${i}A.txt Test/test${i}B.txt > tmp.txt
 
-    diff Test/resultat${i}.txt tmp.txt
+    diff Resultat/resultat${i}.txt tmp.txt
     if [ $? ]; then
         result+="True;"
     else result+="False;"
