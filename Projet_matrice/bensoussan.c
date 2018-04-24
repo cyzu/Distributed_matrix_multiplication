@@ -1,5 +1,5 @@
 #include <mpi.h>
-#include <omp.h>
+//#include <omp.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -49,9 +49,9 @@ int get_case(const struct Matrice * m, int i, int j){
 /* Fonction qui échange les lignes et les colonnes de la matrice m dans destination */
 void echange_ligne_colonne(const struct Matrice * m, struct Matrice * destination){
     int i, j;
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for (i = 0; i < destination->ligne; i++) {
-        #pragma omp parallel for
+        //#pragma omp parallel for
         for(j = 0; j < destination->colonne; j++){
             destination->matrice[get_case(destination, i, j)] = m->matrice[get_case(m, j, i)];
         }
@@ -61,7 +61,7 @@ void echange_ligne_colonne(const struct Matrice * m, struct Matrice * destinatio
 /* Fonction qui copie la matrice m dans destination (allocation doit être fait avant) */
 void copie_matrice(const struct Matrice * m, struct Matrice * destination){
     int i;
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for (i = 0; i < m->ligne * m->colonne; i++){
         destination->matrice[i] = m->matrice[i];
     }
@@ -71,19 +71,19 @@ void scatterv(int * lignes, int * dataCount, int * adresseData, const int size, 
     int i, partage = size;
 
     /* Calcul de nombre de ligne à envoyer par colonne (pour tous les cas)*/
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for (i = 0; i < nb_procs; i++) {
         lignes[i] = partage / nb_procs;
     }
     partage = partage % nb_procs;
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for (i = 0; i < partage; i++) {
         lignes[i]++;
     }
 
     /* Calcul de nombre de cases à envoyer et leur adresse pour MPI_Scatterv */
     int accumulateur = 0;
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for(i = 0; i < nb_procs; i++){
         adresseData[i] = accumulateur;
         dataCount[i] = lignes[i] * size;
@@ -93,11 +93,11 @@ void scatterv(int * lignes, int * dataCount, int * adresseData, const int size, 
 
 void count_lignes_prec(int * lignes, int * lignes_prec, const int nb_procs){
     int i;
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for (i = 0; i < nb_procs; i++){
         lignes_prec[i] = 0;
     }
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for (i = 1; i < nb_procs; i++){
         lignes_prec[i] = lignes_prec[i - 1] + lignes[i - 1];
     }
@@ -322,9 +322,9 @@ int main (int argc, char *argv[]){
         A->ligne = lignes[l_actuelle]; // on redimensionne la taille de la matrice après réception
 
         /* Calculs des matrices dans tmpB (à la bonne case) */
-        #pragma omp parallel for
+        //#pragma omp parallel for
         for(i = 0; i < A->ligne; i++){
-            #pragma omp parallel for
+            //#pragma omp parallel for
             for (j = 0; j < B->colonne; j++) {
                 tmpB->matrice[get_case(tmpB, i + lignes_prec[l_actuelle], j)] = produit_matriciel_par_case(A, B, i, j);
             }
