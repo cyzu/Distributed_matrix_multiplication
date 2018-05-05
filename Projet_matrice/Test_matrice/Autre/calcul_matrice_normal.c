@@ -170,7 +170,7 @@ int get_matrice_size(char * filename){
 
 int main (int argc, char *argv[]){
     if (argc - 1 < 2){
-        fprintf(stderr, "Usage : %s <filename1> <filename2>\n ", argv[0]);
+        fprintf(stderr, "Usage : %s <filename1> <filename2>\n", argv[0]);
         exit(0);
     }
     int size = get_matrice_size(argv[1]);
@@ -180,9 +180,6 @@ int main (int argc, char *argv[]){
     
     generation_matrice_from_file(A, argv[1], size);
     generation_matrice_from_file(B, argv[2], size);
-    
-    //afficher_matrice(A);
-    //afficher_matrice(B);
 
     struct Matrice *C = malloc(sizeof(struct Matrice));
     generation_matrice_fixe(C, A->ligne, B->colonne);

@@ -26,7 +26,7 @@ fi
 echo $CC $OPTION $OMP -o $exec $file $MATH
 $CC $OPTION $OMP -o $exec $file $MATH
 
-for i in {1..11}; do
+for i in {1..12}; do
     echo $RUN --oversubscribe -np $1 ./$exec Test/test${i}A.txt Test/test${i}B.txt
     $RUN --oversubscribe -np $1 ./$exec Test/test${i}A.txt Test/test${i}B.txt > tmp.txt
 
