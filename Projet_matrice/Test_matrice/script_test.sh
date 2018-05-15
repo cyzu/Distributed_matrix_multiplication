@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Ce script compile le code source dans le dossier scr/ puis l'excécute avec n processus passé en paramètre.
 # Il compare les résultats obtenus avec ceux du dossier Resultat/ puis affiche True ou False
@@ -9,8 +9,8 @@
 
 CC="mpicc"
 OPTION="-std=c99 -g -Wall"
-OMP=""          # pour openmp (-fopenmp)
-MATH=""                 # -lm si vous utilisez math.h
+OMP="-fopenmp"          # pour openmp (-fopenmp)
+MATH="-lm"                 # -lm si vous utilisez math.h
 RUN="mpirun"
 
 # NE PAS Y TOUCHER
@@ -26,7 +26,7 @@ fi
 echo $CC $OPTION $OMP -o $exec $file $MATH
 $CC $OPTION $OMP -o $exec $file $MATH
 
-for i in {1..12}; do
+for i in `seq 1 12`; do
     echo $RUN --oversubscribe -np $1 ./$exec Test/test${i}A.txt Test/test${i}B.txt
     $RUN --oversubscribe -np $1 ./$exec Test/test${i}A.txt Test/test${i}B.txt > tmp.txt
 
